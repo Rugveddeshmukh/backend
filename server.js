@@ -11,7 +11,6 @@ const quizRoutes = require('./routes/quizRoutes');
 const courseRoutes = require('./routes/courseRoutes');
 const lessonRoutes = require('./routes/lessonRoutes');
 const supportRoutes = require('./routes/supportRoutes');
-
 const adminRoutes = require('./routes/adminRoutes');
 
 
@@ -36,6 +35,6 @@ app.use('/api/support', supportRoutes);
 app.use('/api/admin', adminRoutes);
 
 
-// const PORT = process.env.PORT || 5000;
-// app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-module.exports = app;
+
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

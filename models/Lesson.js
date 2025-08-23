@@ -17,4 +17,5 @@ const lessonSchema = new mongoose.Schema({
   thumbnailPublicId: { type: String, required: true },
 }, { timestamps: true });
 
+
 module.exports = mongoose.model('Lesson', lessonSchema);
