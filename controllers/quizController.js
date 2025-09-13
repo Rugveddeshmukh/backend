@@ -1,4 +1,5 @@
 const Quiz = require('../models/Quiz');
+const LessonProgress = require('../models/LessonProgress');
 const csv = require('csvtojson');
 const mongoose = require('mongoose');
 const cloudinary = require('../config/cloudinary');
@@ -30,8 +31,8 @@ exports.uploadQuizFromCSV = async (req, res) => {
       return res.status(400).json({ message: 'Only CSV files are allowed' });
     }
 
-    const { courseName, passPercentage, durationMinutes, courseId } = req.body;
-    if (!courseName || passPercentage === undefined) {
+    const {  lessonId, passPercentage, durationMinutes, courseId } = req.body;
+    if (!lessonId || passPercentage === undefined) {
       return res.status(400).json({ message: 'courseName and passPercentage are required' });
     }
 
@@ -83,8 +84,9 @@ exports.uploadQuizFromCSV = async (req, res) => {
 
     // 4) Save Quiz
     const quiz = await Quiz.create({
-      courseName: normalize(courseName),
+      //courseName: normalize(courseName),
       courseId: courseId && mongoose.Types.ObjectId.isValid(courseId) ? courseId : undefined,
+      lessonId: lessonId && mongoose.Types.ObjectId.isValid(lessonId) ? lessonId : undefined,
       passPercentage: Number(passPercentage),
       duration: durationMinutes ? Math.round(Number(durationMinutes) * 60) : 0,
       questions,
@@ -100,20 +102,52 @@ exports.uploadQuizFromCSV = async (req, res) => {
 
 exports.getAllQuizzes = async (req, res) => {
   try {
-    const quizzes = await Quiz.find().select('-questions.correctAnswer -attempts');
-    res.json(quizzes);
+    const userId = req.user?.id;
+    const quizzes = await Quiz.find()
+      .populate("lessonId", "title courseId")
+      .lean();
+
+    if (!userId) {
+      // user login नसेल तर default locked
+      const locked = quizzes.map(q => ({ ...q, locked: true }));
+      return res.json(locked);
+    }
+
+    // find all lesson progresses for this user
+    const lessonIds = quizzes.map(q => q.lessonId?._id).filter(Boolean);
+    const progresses = await LessonProgress.find({
+      userId,
+      lessonId: { $in: lessonIds },
+    }).lean();
+
+    const progressMap = {};
+    progresses.forEach(p => {
+      progressMap[p.lessonId.toString()] = p.status;
+    });
+
+    // जर lesson "completed" असेल तर quiz unlock करायचा
+    const result = quizzes.map(q => {
+      const lessonStatus = progressMap[q.lessonId?._id?.toString()] || "not-started";
+      return {
+        ...q,
+        locked: lessonStatus !== "completed",
+      };
+    });
+
+    res.json(result);
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Failed to load quizzes' });
   }
 };
 
+
 exports.getQuizForAttempt = async (req, res) => {
   try {
     const quizId = req.params.id;
     if (!quizId) return res.status(400).json({ message: 'Quiz ID is required' });
 
-    const quiz = await Quiz.findById(quizId).lean();
+    const quiz = await Quiz.findById(quizId).populate("lessonId", "title").lean();
     if (!quiz) return res.status(404).json({ message: 'Quiz not found' });
 
     const safeQuestions = quiz.questions.map((q) => ({
@@ -124,7 +158,8 @@ exports.getQuizForAttempt = async (req, res) => {
 
     return res.json({
       _id: quiz._id,
-      courseName: quiz.courseName,
+      //courseName: quiz.courseName,
+      lessonId: quiz.lessonId,
       passPercentage: quiz.passPercentage,
       duration: quiz.duration,
       questions: safeQuestions
@@ -142,7 +177,7 @@ exports.updateQuizSettings = async (req, res) => {
     if (passPercentage !== undefined) update.passPercentage = Number(passPercentage);
     if (durationMinutes !== undefined) update.duration = Math.round(Number(durationMinutes) * 60);
 
-    const quiz = await Quiz.findByIdAndUpdate(req.params.quizId, update, { new: true });
+    const quiz = await Quiz.findByIdAndUpdate(req.params.quizId, update, { new: true }).populate("lessonId", "title");
     if (!quiz) return res.status(404).json({ message: 'Quiz not found' });
     res.json({ message: 'Quiz settings updated', quiz });
   } catch (err) {
@@ -150,6 +185,22 @@ exports.updateQuizSettings = async (req, res) => {
     res.status(500).json({ message: 'Failed to update quiz settings' });
   }
 };
+
+exports.deleteQuiz = async (req, res) => {
+  try {
+    const { quizId } = req.params;
+    if (!quizId) return res.status(400).json({ message: "Quiz ID is required" });
+
+    const quiz = await Quiz.findByIdAndDelete(quizId);
+    if (!quiz) return res.status(404).json({ message: "Quiz not found" });
+
+    return res.json({ message: "Quiz deleted successfully", quiz });
+  } catch (err) {
+    console.error("deleteQuiz error", err);
+    res.status(500).json({ message: "Failed to delete quiz", error: err.message });
+  }
+};
+
 
 exports.submitQuiz = async (req, res) => {
   try {
@@ -206,5 +257,53 @@ exports.submitQuiz = async (req, res) => {
   } catch (err) {
     console.error('submitQuiz error', err);
     res.status(500).json({ message: 'Quiz submission failed', error: err.message });
+  }
+};
+
+// quizController.js 
+exports.getQuizStats = async (req, res) => {
+  try {
+    // adminOnly middleware already ensures this is an admin
+    const quizzes = await Quiz.find()
+      .populate('lessonId', 'title')
+      .populate('courseId', 'name')
+      .populate('attempts.userId', 'name email')
+      .lean();
+
+       const quizStats = quizzes.map(quiz => {
+      const totalAttempts = quiz.attempts.length;
+      const passCount = quiz.attempts.filter(a => a.status === 'pass').length;
+      const failCount = quiz.attempts.filter(a => a.status === 'fail').length;
+      const averageScore =
+        totalAttempts > 0
+          ? Math.round(quiz.attempts.reduce((sum, a) => sum + a.score, 0) / totalAttempts)
+          : 0;
+
+      const attempts = quiz.attempts.map(a => ({
+        user: a.userId ? { _id: a.userId._id, name: a.userId.name, email: a.userId.email } : null,
+        score: a.score,
+        status: a.status,
+        attemptedAt: a.attemptedAt,
+        timeTaken: a.timeTaken,
+        timeExpired: a.timeExpired
+      }));
+
+      return {
+        _id: quiz._id,
+        courseId: quiz.courseId,
+        lessonId: quiz.lessonId,
+        totalQuestions: quiz.questions.length,
+        totalAttempts,
+        passCount,
+        failCount,
+        averageScore,
+        attempts
+      };
+    });
+
+    res.json(quizStats);
+  } catch (err) {
+    console.error('getQuizStats error', err);
+    res.status(500).json({ message: 'Failed to get quiz stats', error: err.message });
   }
 };

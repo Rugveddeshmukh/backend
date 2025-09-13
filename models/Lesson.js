@@ -6,7 +6,7 @@ const lessonSchema = new mongoose.Schema({
     ref: 'Course',
     required: true
   },
-  title: { type: String, required: false },
+  title: { type: String, required: true },
 
   // Store absolute Cloudinary URLs
   ppt: { type: String, required: true },
@@ -15,6 +15,10 @@ const lessonSchema = new mongoose.Schema({
   // For safe deletion on Cloudinary
   pptPublicId: { type: String, required: true },
   thumbnailPublicId: { type: String, required: true },
+
+  startDate: { type: Date, default: Date.now },
+  endDate: { type: Date }
+  
 }, { timestamps: true });
 
 

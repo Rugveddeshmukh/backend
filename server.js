@@ -14,6 +14,7 @@ const supportRoutes = require('./routes/supportRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 
 
+
 dotenv.config();
 connectDB();
 const app = express();
@@ -33,6 +34,7 @@ app.use('/api/lesson', lessonRoutes);
 app.use('/api/quiz', quizRoutes);
 app.use('/api/support', supportRoutes);
 app.use('/api/admin', adminRoutes);
+
 
 
 

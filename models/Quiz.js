@@ -16,8 +16,9 @@ const attemptSchema = new mongoose.Schema({
 });
 
 const quizSchema = new mongoose.Schema({
-  courseName: { type: String, required: true },
+  //courseName: { type: String, required: true },
   courseId: { type: mongoose.Schema.Types.ObjectId, ref: 'Course' },
+  lessonId: { type: mongoose.Schema.Types.ObjectId, ref: 'Lesson' },
   questions: [questionSchema],
   passPercentage: { type: Number, default: 60 },
   duration: { type: Number, default: 0 }, // seconds (0 = no limit)

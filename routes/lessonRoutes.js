@@ -1,5 +1,6 @@
 const express = require('express');
-const { uploadLesson, getLessonsByCourse, deleteLesson } = require('../controllers/lessonController');
+const { uploadLesson, getLessonsByCourse, deleteLesson,updateLessonProgress,attachQuizToLesson,
+  removeQuizFromLesson } = require('../controllers/lessonController');
 const { protect, adminOnly } = require('../middleware/authMiddleware');
 const upload = require('../middleware/fileUpload');
 
@@ -7,8 +8,7 @@ const router = express.Router();
 
 router.post(
   '/',
-  protect,
-  adminOnly,
+  protect,adminOnly,
   upload.fields([
     { name: 'ppt', maxCount: 1 },
     { name: 'thumbnail', maxCount: 1 }
@@ -18,5 +18,8 @@ router.post(
 
 router.get('/:courseId', protect, getLessonsByCourse);
 router.delete('/:id', protect, adminOnly, deleteLesson);
+router.put('/:id/progress', protect, updateLessonProgress);
+
+
 
 module.exports = router;
