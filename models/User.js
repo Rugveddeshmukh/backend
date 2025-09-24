@@ -51,18 +51,23 @@ const mongoose = require('mongoose');
 
 const loginHistorySchema = new mongoose.Schema({
   ip: String,
-  device: String,
-  timestamp: {
-    type: Date,
-    default: Date.now,
-  },
+  deviceType: { type: String, default: "Unknown" },
+  location: { type: String, default: "Unknown" },
+  timestamp: { type: Date, default: Date.now },  
+  status: { type: String, enum: ["Success", "Failure"], default: "Success" }, 
 });
 
 const userSchema = new mongoose.Schema({
+  employeeId: { type: String, required: true, unique: true },
   fullName: { type: String, required: true },
   email: { type: String, required: true, unique: true },
+  contactNo: { type: String, required: true },                 
+  teamLeader: { type: String },                                 
+  designation: { type: String },              
   password: { type: String, required: true },
-  dateOfBirth: { type: Date, required: true },
+  isApproved: { type: Boolean, default: false },
+  approvedAt: { type: Date },
+  isBlocked: { type: Boolean, default: false },
   role: { type: String, enum: ['user', 'admin'], default: 'user' },
   loginHistory: [loginHistorySchema],
   createdAt: {

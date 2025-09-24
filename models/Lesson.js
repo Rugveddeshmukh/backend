@@ -11,7 +11,7 @@ const lessonSchema = new mongoose.Schema({
   // Store absolute Cloudinary URLs
   ppt: { type: String, required: true },
   thumbnail: { type: String, required: true },
-
+  
   // For safe deletion on Cloudinary
   pptPublicId: { type: String, required: true },
   thumbnailPublicId: { type: String, required: true },

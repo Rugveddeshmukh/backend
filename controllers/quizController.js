@@ -125,7 +125,7 @@ exports.getAllQuizzes = async (req, res) => {
       progressMap[p.lessonId.toString()] = p.status;
     });
 
-    // जर lesson "completed" असेल तर quiz unlock करायचा
+   
     const result = quizzes.map(q => {
       const lessonStatus = progressMap[q.lessonId?._id?.toString()] || "not-started";
       return {
@@ -263,41 +263,63 @@ exports.submitQuiz = async (req, res) => {
 // quizController.js 
 exports.getQuizStats = async (req, res) => {
   try {
-    // adminOnly middleware already ensures this is an admin
+    const { start, end } = req.query;
+
     const quizzes = await Quiz.find()
       .populate('lessonId', 'title')
-      .populate('courseId', 'name')
-      .populate('attempts.userId', 'name email')
+      .populate('attempts.userId', 'fullName email')
       .lean();
 
-       const quizStats = quizzes.map(quiz => {
-      const totalAttempts = quiz.attempts.length;
-      const passCount = quiz.attempts.filter(a => a.status === 'pass').length;
-      const failCount = quiz.attempts.filter(a => a.status === 'fail').length;
-      const averageScore =
-        totalAttempts > 0
-          ? Math.round(quiz.attempts.reduce((sum, a) => sum + a.score, 0) / totalAttempts)
-          : 0;
+    // filter attempts by date
+    const quizStats = quizzes.map(quiz => {
+      const filteredAttempts = quiz.attempts.filter(a => {
+        const attemptedAt = new Date(a.attemptedAt);
+        if (start && attemptedAt < new Date(start)) return false;
+        if (end && attemptedAt > new Date(end + 'T23:59:59')) return false;
+        return true;
+      });
 
-      const attempts = quiz.attempts.map(a => ({
-        user: a.userId ? { _id: a.userId._id, name: a.userId.name, email: a.userId.email } : null,
-        score: a.score,
-        status: a.status,
-        attemptedAt: a.attemptedAt,
-        timeTaken: a.timeTaken,
-        timeExpired: a.timeExpired
+      const totalAttempts = filteredAttempts.length;
+      const passCount = filteredAttempts.filter(a => a.status === 'pass').length;
+      const failCount = filteredAttempts.filter(a => a.status === 'fail').length;
+      const averageScore = totalAttempts
+        ? Math.round(filteredAttempts.reduce((sum, a) => sum + a.score, 0) / totalAttempts)
+        : 0;
+
+      const userStatsMap = {};
+      filteredAttempts.forEach(a => {
+        if (!a.userId) return;
+        const uid = a.userId._id.toString();
+        if (!userStatsMap[uid]) {
+          userStatsMap[uid] = {
+            user: { _id: a.userId._id, fullName: a.userId.fullName, email: a.userId.email },
+            totalAttempts: 0,
+            pass: 0,
+            fail: 0,
+            scores: []
+          };
+        }
+        userStatsMap[uid].totalAttempts++;
+        if (a.status === 'pass') userStatsMap[uid].pass++;
+        if (a.status === 'fail') userStatsMap[uid].fail++;
+        userStatsMap[uid].scores.push(a.score);
+      });
+
+      const userStats = Object.values(userStatsMap).map(u => ({
+        ...u,
+        averageScore: u.scores.length
+          ? Math.round(u.scores.reduce((s, x) => s + x, 0) / u.scores.length)
+          : 0
       }));
 
       return {
         _id: quiz._id,
-        courseId: quiz.courseId,
         lessonId: quiz.lessonId,
-        totalQuestions: quiz.questions.length,
         totalAttempts,
         passCount,
         failCount,
         averageScore,
-        attempts
+        userStats
       };
     });
 
@@ -305,5 +327,68 @@ exports.getQuizStats = async (req, res) => {
   } catch (err) {
     console.error('getQuizStats error', err);
     res.status(500).json({ message: 'Failed to get quiz stats', error: err.message });
+  }
+};
+
+
+
+exports.getUserQuizStats = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    // Find all quizzes where this user attempted
+    const quizzes = await Quiz.find({ "attempts.userId": userId }).lean();
+
+    let pass = 0, fail = 0, pending = 0;
+
+    quizzes.forEach((quiz) => {
+      // this quiz user attempts
+      const userAttempts = quiz.attempts.filter(
+        (a) => a.userId.toString() === userId.toString()
+      );
+
+      if (userAttempts.length === 0) {
+        pending++;
+      } else {
+        // last attempt check 
+        const lastAttempt = userAttempts[userAttempts.length - 1];
+        if (lastAttempt.status === "pass") pass++;
+        else fail++;
+      }
+    });
+
+    res.json({ pass, fail, pending });
+  } catch (err) {
+    console.error("getUserQuizStats error", err);
+    res.status(500).json({ message: "Failed to get user quiz stats" });
+  }
+};
+
+exports.getQuizStatsSummary = async (req, res) => {
+  try {
+    // Find all quizzes
+    const quizzes = await Quiz.find().lean();
+
+    // Total quizzes uploaded
+    const totalUploaded = quizzes.length;
+
+    // Total attempts across all quizzes
+    let totalAttempts = 0;
+    let passed = 0;
+    let failed = 0;
+
+    quizzes.forEach((quiz) => {
+      const attempts = quiz.attempts || [];
+      totalAttempts += attempts.length;
+      attempts.forEach(a => {
+        if (a.status === 'pass') passed++;
+        else if (a.status === 'fail') failed++;
+      });
+    });
+
+    res.json({ totalUploaded, totalAttempts, passed, failed });
+  } catch (err) {
+    console.error('getQuizStatsSummary error:', err);
+    res.status(500).json({ message: 'Failed to get quiz stats summary', error: err.message });
   }
 };

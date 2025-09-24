@@ -1,6 +1,6 @@
 const express = require('express');
-const { uploadLesson, getLessonsByCourse, deleteLesson,updateLessonProgress,attachQuizToLesson,
-  removeQuizFromLesson } = require('../controllers/lessonController');
+const { uploadLesson, getLessonsByCourse, deleteLesson,updateLessonProgress,getAllLessons,
+  } = require('../controllers/lessonController');
 const { protect, adminOnly } = require('../middleware/authMiddleware');
 const upload = require('../middleware/fileUpload');
 
@@ -19,6 +19,8 @@ router.post(
 router.get('/:courseId', protect, getLessonsByCourse);
 router.delete('/:id', protect, adminOnly, deleteLesson);
 router.put('/:id/progress', protect, updateLessonProgress);
+router.get('/', protect, adminOnly, getAllLessons);
+
 
 
 

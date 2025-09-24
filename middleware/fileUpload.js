@@ -14,7 +14,15 @@ const storage = new CloudinaryStorage({
 
     const isDoc = ['ppt', 'pptx', 'pdf'].includes(ext);
     const isImage = file.mimetype.startsWith('image/');
-
+     
+    if (file.fieldname === "file" && ext === "pdf") {
+      return {
+        folder: "user_manuals",
+        resource_type: "raw", // raw = non-image/video (pdf, docx, etc)
+        public_id: `${Date.now()}_${base}`,
+        format: "pdf",
+      };
+    }
     
     if (file.fieldname === 'ppt' || isDoc) {
       return {
@@ -48,6 +56,12 @@ const fileFilter = (req, file, cb) => {
   const allowedDocs = ['application/vnd.ms-powerpoint', 'application/vnd.openxmlformats-officedocument.presentationml.presentation', 'application/pdf'];
   const isDoc = allowedDocs.includes(file.mimetype);
   const isImage = file.mimetype.startsWith('image/');
+
+  if (file.fieldname === "file") {
+    return file.mimetype === "application/pdf"
+      ? cb(null, true)
+      : cb(new Error("Only PDF files allowed for user manual"), false);
+  }
 
   if (file.fieldname === 'ppt') {
     return isDoc ? cb(null, true) : cb(new Error('Only PPT/PPTX/PDF allowed for ppt'), false);

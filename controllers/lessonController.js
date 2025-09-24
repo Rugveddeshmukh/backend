@@ -135,3 +135,13 @@ exports.updateLessonProgress = async (req, res) => {
   }
 };
 
+// Fetch all lessons (for admin)
+exports.getAllLessons = async (req, res) => {
+  try {
+    const lessons = await Lesson.find().sort({ createdAt: -1 }).lean();
+    res.json(lessons);
+  } catch (err) {
+    console.error('getAllLessons error:', err);
+    res.status(500).json({ message: 'Failed to fetch lessons' });
+  }
+};

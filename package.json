@@ -3,8 +3,8 @@
   "version": "1.0.0",
   "main": "server.js",
   "scripts": {
-     "dev": "nodemon server.js",
-     "start": "node server.js"
+    "dev": "nodemon server.js",
+    "start": "node server.js"
   },
   "keywords": [],
   "author": "",
@@ -12,20 +12,25 @@
   "type": "commonjs",
   "description": "",
   "dependencies": {
+    "@jimp/plugin-print": "^1.6.0",
+    "axios": "^1.12.2",
     "bcryptjs": "^3.0.2",
+    "canvas": "^3.2.0",
     "cloudinary": "^1.41.3",
     "cors": "^2.8.5",
     "crypto": "^1.0.1",
     "csvtojson": "^2.0.10",
     "dotenv": "^17.2.1",
     "express": "^5.1.0",
+    "jimp": "^1.6.0",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.17.1",
     "multer": "^2.0.2",
     "multer-storage-cloudinary": "^4.0.0",
     "nodemailer": "^7.0.5",
     "nodemon": "^3.1.10",
-    "pdfkit": "^0.17.1",
+    "pdfkit": "^0.17.2",
+    "streamifier": "^0.1.1",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {

@@ -7,7 +7,11 @@ const {
   getAllQuizzes,
   getQuizForAttempt,
   submitQuiz,
-  updateQuizSettings,deleteQuiz,getQuizStats
+  updateQuizSettings,
+  deleteQuiz,
+  getQuizStats,
+  getUserQuizStats,
+  getQuizStatsSummary
 } = require('../controllers/quizController');
 
 const { protect, adminOnly } = require('../middleware/authMiddleware');
@@ -20,7 +24,10 @@ router.get('/take/:id', protect, getQuizForAttempt);
 router.post('/submit', protect, submitQuiz);
 router.put('/:quizId/manage', protect, updateQuizSettings);
 router.delete('/:quizId', protect, deleteQuiz);
+router.get('/user/stats', protect, getUserQuizStats);
 
 router.get('/admin/stats', protect, adminOnly, getQuizStats);
+router.get('/admin/summary', protect, adminOnly, getQuizStatsSummary);
+
 
 module.exports = router;

@@ -3,7 +3,7 @@ const mongoose = require('mongoose');
 const questionSchema = new mongoose.Schema({
   question: { type: String, required: true },
   options: [{ type: String }],
-  correctAnswer: { type: Number, required: true } // 0..3
+  correctAnswer: { type: Number, required: true } 
 });
 
 const attemptSchema = new mongoose.Schema({

@@ -10,8 +10,10 @@ const userRoutes = require('./routes/userRoutes');
 const quizRoutes = require('./routes/quizRoutes');
 const courseRoutes = require('./routes/courseRoutes');
 const lessonRoutes = require('./routes/lessonRoutes');
-const supportRoutes = require('./routes/supportRoutes');
 const adminRoutes = require('./routes/adminRoutes');
+const ticketRoutes = require('./routes/ticketRoutes');
+const helpRoutes = require('./routes/helpRoutes');
+const notificationRoutes = require('./routes/notificationRoutes');
 
 
 
@@ -32,8 +34,10 @@ app.use('/api/user', userRoutes);
 app.use('/api/course', courseRoutes);
 app.use('/api/lesson', lessonRoutes);
 app.use('/api/quiz', quizRoutes);
-app.use('/api/support', supportRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/tickets', ticketRoutes);
+app.use('/api/help', helpRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 
 

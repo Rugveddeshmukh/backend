@@ -90,9 +90,9 @@ const jwt = require('jsonwebtoken');
 
 // POST /api/auth/register
 exports.register = async (req, res) => {
-  const { fullName, email, password, dateOfBirth } = req.body;
+  const { employeeId,fullName, email,contactNo, password, teamLeader, designation } = req.body;
 
-  if (!fullName || !email || !password || !dateOfBirth) {
+  if (!employeeId ||!fullName || !email || !contactNo || !password ) {
     return res.status(400).json({ message: 'All fields are required' });
   }
 
@@ -105,10 +105,13 @@ exports.register = async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const newUser = new User({
+      employeeId,
       fullName,
       email,
+      contactNo,
       password: hashedPassword,
-      dateOfBirth,
+      teamLeader,
+      designation,
       role: 'user', 
     });
 
@@ -120,38 +123,79 @@ exports.register = async (req, res) => {
   }
 };
 
+
 // POST /api/auth/login
 exports.login = async (req, res) => {
   const { email, password } = req.body;
 
   try {
     const user = await User.findOne({ email });
-    if (!user) return res.status(401).json({ message: 'Invalid credentials' });
+    if (!user) {
+      return res.status(401).json({ message: "Invalid credentials" });
+    }
+
+    if (!user.isApproved) {
+      return res.status(403).json({code: "PENDING_APPROVAL",
+        message: "Your account is not approved yet. Please wait for admin approval.",
+     });
+    }
+
+    if (user.isBlocked) { 
+     return res.status(403).json({ code: "ACCOUNT_INACTIVE",
+      message: "Your account is inactive. Please contact admin." });
+    }
 
     const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) return res.status(401).json({ message: 'Invalid credentials' });
 
+    let ip = req.headers["x-forwarded-for"] || req.socket.remoteAddress || req.ip;
+    if (ip.startsWith("::ffff:")) ip = ip.split(":").pop(); // IPv6 → IPv4
 
-    // Add login history
-    const ip = req.ip || req.connection.remoteAddress;
-    const device = req.headers["user-agent"] || "Unknown Device";
+    const userAgent = req.headers["user-agent"] || "Unknown";
+    const deviceType = /mobile/i.test(userAgent) ? "Mobile" : "Desktop";
 
-    user.loginHistory.push({ ip, device, timestamp: new Date() });
+    let location = "Unknown";
+
+    // ✅ Private / localhost IP साठी fallback
+    const isPrivateIP = /^(127\.|192\.168|10\.|::1)/.test(ip);
+    if (isPrivateIP) {
+      location = "Localhost";
+    } else {
+      try {
+        const fetch = (await import("node-fetch")).default;
+        const resp = await fetch(`http://ip-api.com/json/${ip}`);
+        const data = await resp.json();
+        if (data.status === "success") {
+          location = `${data.city}, ${data.country}`;
+        }
+      } catch (err) {
+        console.error("Location fetch failed:", err.message);
+      }
+    }
+
+    if (!isMatch) {
+      user.loginHistory.push({ ip, deviceType, location, status: "Failure" });
+      await user.save();
+      return res.status(401).json({ message: "Invalid credentials" });
+    }
+
+    // ✅ Success login
+    user.loginHistory.push({ ip, deviceType, location, status: "Success" });
     await user.save();
 
-    const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, {
-      expiresIn: '1d',
-    });
-    
+    const token = jwt.sign(
+      { id: user._id, role: user.role },
+      process.env.JWT_SECRET,
+      { expiresIn: "1d" }
+    );
 
     res.status(200).json({ token, user });
   } catch (err) {
-    console.error('Login Error:', err);
-    res.status(500).json({ message: 'Server error during login' });
+    console.error("Login Error:", err);
+    res.status(500).json({ message: "Server error during login" });
   }
 };
 
- 
+
 // GET /api/auth/profile
 exports.getProfile = async (req, res) => {
   try {
@@ -162,6 +206,29 @@ exports.getProfile = async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 };
+
+exports.logout = async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    // Set last login entry's signOutTime
+    if (user.loginHistory.length > 0) {
+      user.loginHistory[user.loginHistory.length - 1].signOutTime = new Date();
+      await user.save();
+    }
+
+    res.status(200).json({ message: "Logged out successfully" });
+  } catch (err) {
+    console.error("Logout Error:", err);
+    res.status(500).json({ message: "Server error during logout" });
+  }
+};
+
+
+
+
+
 
 
 
